@@ -3,8 +3,57 @@ import {
   ComposableMap,
   Geographies,
   Geography,
+  Marker,
   ZoomableGroup,
 } from "react-simple-maps";
+
+interface StadiumInfo {
+  team: string;
+  stadium: string;
+  division: string;
+  capacity: string;
+  city: string;
+  coordinates: [number, number];
+}
+
+const MLB_STADIUMS: StadiumInfo[] = [
+  // AL East
+  { team: "Baltimore Orioles", stadium: "Oriole Park at Camden Yards", division: "AL East", capacity: "45,971", city: "Baltimore, MD", coordinates: [-76.6217, 39.2838] },
+  { team: "Boston Red Sox", stadium: "Fenway Park", division: "AL East", capacity: "37,755", city: "Boston, MA", coordinates: [-71.0972, 42.3467] },
+  { team: "New York Yankees", stadium: "Yankee Stadium", division: "AL East", capacity: "46,537", city: "Bronx, NY", coordinates: [-73.9262, 40.8296] },
+  { team: "Tampa Bay Rays", stadium: "Tropicana Field", division: "AL East", capacity: "25,025", city: "St. Petersburg, FL", coordinates: [-82.6534, 27.7682] },
+  { team: "Toronto Blue Jays", stadium: "Rogers Centre", division: "AL East", capacity: "49,282", city: "Toronto, ON", coordinates: [-79.3894, 43.6414] },
+  // AL Central
+  { team: "Chicago White Sox", stadium: "Guaranteed Rate Field", division: "AL Central", capacity: "40,615", city: "Chicago, IL", coordinates: [-87.6339, 41.8300] },
+  { team: "Cleveland Guardians", stadium: "Progressive Field", division: "AL Central", capacity: "34,830", city: "Cleveland, OH", coordinates: [-81.6852, 41.4962] },
+  { team: "Detroit Tigers", stadium: "Comerica Park", division: "AL Central", capacity: "41,297", city: "Detroit, MI", coordinates: [-83.0485, 42.3390] },
+  { team: "Kansas City Royals", stadium: "Kauffman Stadium", division: "AL Central", capacity: "37,903", city: "Kansas City, MO", coordinates: [-94.4803, 39.0518] },
+  { team: "Minnesota Twins", stadium: "Target Field", division: "AL Central", capacity: "38,544", city: "Minneapolis, MN", coordinates: [-93.2781, 44.9817] },
+  // AL West
+  { team: "Houston Astros", stadium: "Minute Maid Park", division: "AL West", capacity: "41,168", city: "Houston, TX", coordinates: [-95.3555, 29.7573] },
+  { team: "Los Angeles Angels", stadium: "Angel Stadium", division: "AL West", capacity: "45,517", city: "Anaheim, CA", coordinates: [-117.8827, 33.8003] },
+  { team: "Oakland Athletics", stadium: "Sutter Health Park", division: "AL West", capacity: "14,014", city: "Sacramento, CA", coordinates: [-121.5083, 38.5733] },
+  { team: "Seattle Mariners", stadium: "T-Mobile Park", division: "AL West", capacity: "47,943", city: "Seattle, WA", coordinates: [-122.3325, 47.5914] },
+  { team: "Texas Rangers", stadium: "Globe Life Field", division: "AL West", capacity: "40,000", city: "Arlington, TX", coordinates: [-97.0845, 32.7473] },
+  // NL East
+  { team: "Atlanta Braves", stadium: "Truist Park", division: "NL East", capacity: "41,084", city: "Cumberland, GA", coordinates: [-84.4678, 33.8908] },
+  { team: "Miami Marlins", stadium: "loanDepot park", division: "NL East", capacity: "36,742", city: "Miami, FL", coordinates: [-80.2197, 25.7781] },
+  { team: "New York Mets", stadium: "Citi Field", division: "NL East", capacity: "41,922", city: "Queens, NY", coordinates: [-73.8458, 40.7571] },
+  { team: "Philadelphia Phillies", stadium: "Citizens Bank Park", division: "NL East", capacity: "42,792", city: "Philadelphia, PA", coordinates: [-75.1665, 39.9061] },
+  { team: "Washington Nationals", stadium: "Nationals Park", division: "NL East", capacity: "41,339", city: "Washington, DC", coordinates: [-77.0075, 38.8731] },
+  // NL Central
+  { team: "Chicago Cubs", stadium: "Wrigley Field", division: "NL Central", capacity: "41,649", city: "Chicago, IL", coordinates: [-87.6553, 41.9484] },
+  { team: "Cincinnati Reds", stadium: "Great American Ball Park", division: "NL Central", capacity: "42,319", city: "Cincinnati, OH", coordinates: [-84.5066, 39.0975] },
+  { team: "Milwaukee Brewers", stadium: "American Family Field", division: "NL Central", capacity: "41,900", city: "Milwaukee, WI", coordinates: [-87.9712, 43.0280] },
+  { team: "Pittsburgh Pirates", stadium: "PNC Park", division: "NL Central", capacity: "38,362", city: "Pittsburgh, PA", coordinates: [-80.0057, 40.4469] },
+  { team: "St. Louis Cardinals", stadium: "Busch Stadium", division: "NL Central", capacity: "44,383", city: "St. Louis, MO", coordinates: [-90.1928, 38.6226] },
+  // NL West
+  { team: "Arizona Diamondbacks", stadium: "Chase Field", division: "NL West", capacity: "48,686", city: "Phoenix, AZ", coordinates: [-112.0667, 33.4453] },
+  { team: "Colorado Rockies", stadium: "Coors Field", division: "NL West", capacity: "50,144", city: "Denver, CO", coordinates: [-104.9942, 39.7559] },
+  { team: "Los Angeles Dodgers", stadium: "Dodger Stadium", division: "NL West", capacity: "56,000", city: "Los Angeles, CA", coordinates: [-118.2400, 34.0739] },
+  { team: "San Diego Padres", stadium: "Petco Park", division: "NL West", capacity: "42,524", city: "San Diego, CA", coordinates: [-117.1570, 32.7076] },
+  { team: "San Francisco Giants", stadium: "Oracle Park", division: "NL West", capacity: "41,915", city: "San Francisco, CA", coordinates: [-122.3893, 37.7786] },
+];
 
 const WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 const US_STATES_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
@@ -231,8 +280,19 @@ function getProvinceFill(isSelected: boolean, isHovered: boolean) {
   return isHovered ? CA_PROVINCE_HOVER_COLOR : CA_PROVINCE_COLOR + "cc";
 }
 
+const DIVISION_COLORS: Record<string, string> = {
+  "AL East": "#1d4ed8",
+  "AL Central": "#2563eb",
+  "AL West": "#3b82f6",
+  "NL East": "#1e40af",
+  "NL Central": "#1e3a8a",
+  "NL West": "#1d4ed8",
+};
+
 export default function App() {
   const [selected, setSelected] = useState<{ key: string; info: RegionInfo } | null>(null);
+  const [selectedStadium, setSelectedStadium] = useState<StadiumInfo | null>(null);
+  const [hoveredStadium, setHoveredStadium] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [tooltipName, setTooltipName] = useState<string>("");
@@ -242,6 +302,7 @@ export default function App() {
   const handleCountryClick = useCallback((geo: { id: string }) => {
     const code = geo.id;
     const info = COUNTRY_DATA[code];
+    setSelectedStadium(null);
     if (info) setSelected({ key: `country-${code}`, info });
     else setSelected(null);
   }, []);
@@ -249,13 +310,20 @@ export default function App() {
   const handleStateClick = useCallback((geo: { id: string }) => {
     const fips = String(geo.id).padStart(2, "0");
     const info = US_STATE_DATA[fips];
+    setSelectedStadium(null);
     if (info) setSelected({ key: `state-${fips}`, info });
   }, []);
 
   const handleProvinceClick = useCallback((geo: { properties: Record<string, string> }) => {
     const name = geo.properties.name || geo.properties.NAME_1 || geo.properties.NAME;
     const info = CA_PROVINCE_DATA[name];
+    setSelectedStadium(null);
     if (info) setSelected({ key: `province-${name}`, info });
+  }, []);
+
+  const handleStadiumClick = useCallback((stadium: StadiumInfo) => {
+    setSelected(null);
+    setSelectedStadium(stadium);
   }, []);
 
   const handleMouseEnter = useCallback((name: string, evt: React.MouseEvent) => {
@@ -290,12 +358,12 @@ export default function App() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">World Map</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Click any country, U.S. state, or Canadian province to explore</p>
+          <p className="text-sm text-slate-400 mt-0.5">Click any country, U.S. state, Canadian province, or MLB stadium to explore</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setZoom(z => Math.min(z * 1.5, 12))} className="px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">+</button>
           <button onClick={() => setZoom(z => Math.max(z / 1.5, 0.5))} className="px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">−</button>
-          <button onClick={() => { setZoom(1); setCenter([0, 20]); setSelected(null); }} className="px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">Reset</button>
+          <button onClick={() => { setZoom(1); setCenter([0, 20]); setSelected(null); setSelectedStadium(null); }} className="px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">Reset</button>
         </div>
       </header>
 
@@ -390,11 +458,41 @@ export default function App() {
                   })
                 }
               </Geographies>
+              {/* MLB Stadium Markers */}
+              {MLB_STADIUMS.map((stadium) => {
+                const isSelected = selectedStadium?.team === stadium.team;
+                const isHov = hoveredStadium === stadium.team;
+                const s = 1 / zoom;
+                return (
+                  <Marker key={stadium.team} coordinates={stadium.coordinates}>
+                    <g
+                      transform={`scale(${s})`}
+                      style={{ cursor: "pointer" }}
+                      onClick={(e) => { e.stopPropagation(); handleStadiumClick(stadium); }}
+                      onMouseEnter={(e) => { setHoveredStadium(stadium.team); setTooltipName(stadium.team); setTooltipPos({ x: e.clientX, y: e.clientY }); }}
+                      onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
+                      onMouseLeave={() => { setHoveredStadium(null); setTooltipName(""); }}
+                    >
+                      {/* Flag pole */}
+                      <line x1="0" y1="0" x2="0" y2="-20" stroke={isSelected ? "#facc15" : "#93c5fd"} strokeWidth={isHov || isSelected ? 2 : 1.5} />
+                      {/* Flag body */}
+                      <polygon
+                        points="0,-20 12,-16 0,-12"
+                        fill={isSelected ? "#facc15" : isHov ? "#60a5fa" : "#2563eb"}
+                        stroke={isSelected ? "#f59e0b" : "#1d4ed8"}
+                        strokeWidth="0.5"
+                      />
+                      {/* Base dot */}
+                      <circle r={isHov || isSelected ? 3.5 : 2.5} fill={isSelected ? "#facc15" : "#1d4ed8"} stroke="#0f172a" strokeWidth="0.8" />
+                    </g>
+                  </Marker>
+                );
+              })}
             </ZoomableGroup>
           </ComposableMap>
 
           {/* Tooltip */}
-          {hovered && tooltipName && (
+          {(hovered || hoveredStadium) && tooltipName && (
             <div
               className="fixed z-50 pointer-events-none bg-slate-800 text-white text-sm px-3 py-1.5 rounded-lg shadow-xl border border-slate-600 font-medium whitespace-nowrap"
               style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 36 }}
@@ -406,7 +504,70 @@ export default function App() {
 
         {/* Sidebar */}
         <aside className="w-80 border-l border-slate-800 bg-slate-900 flex flex-col overflow-y-auto">
-          {selected ? (
+          {selectedStadium ? (
+            <div className="p-6 flex-1">
+              <button onClick={() => setSelectedStadium(null)} className="text-slate-400 hover:text-white text-sm mb-4 flex items-center gap-1 transition-colors">
+                ← Back
+              </button>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-3 text-white bg-blue-700">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <line x1="5" y1="10" x2="5" y2="2" stroke="white" strokeWidth="1.5"/>
+                  <polygon points="5,2 10,4 5,6" fill="white"/>
+                </svg>
+                MLB Stadium
+              </div>
+              <h2 className="text-xl font-bold text-white mb-0.5">{selectedStadium.team}</h2>
+              <p className="text-slate-400 text-sm mb-5">{selectedStadium.city}</p>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/60">
+                  <span className="text-xl">🏟️</span>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Stadium</p>
+                    <p className="text-sm font-medium text-white mt-0.5">{selectedStadium.stadium}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/60">
+                  <span className="text-xl">⚾</span>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Division</p>
+                    <p className="text-sm font-medium text-white mt-0.5">{selectedStadium.division}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/60">
+                  <span className="text-xl">💺</span>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Capacity</p>
+                    <p className="text-sm font-medium text-white mt-0.5">{selectedStadium.capacity} seats</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/60">
+                  <span className="text-xl">📍</span>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Location</p>
+                    <p className="text-sm font-medium text-white mt-0.5">{selectedStadium.city}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-5 border-t border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Other Teams in {selectedStadium.division}</p>
+                <div className="space-y-2">
+                  {MLB_STADIUMS
+                    .filter(s => s.division === selectedStadium.division && s.team !== selectedStadium.team)
+                    .map(s => (
+                      <button
+                        key={s.team}
+                        onClick={() => setSelectedStadium(s)}
+                        className="w-full text-left px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-700/60 transition-colors text-sm text-slate-300 hover:text-white"
+                      >
+                        {s.team}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </div>
+          ) : selected ? (
             <div className="p-6 flex-1">
               <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-white text-sm mb-4 flex items-center gap-1 transition-colors">
                 ← Back
@@ -505,12 +666,20 @@ export default function App() {
                       <span className="text-sm text-slate-300">{label}</span>
                     </div>
                   ))}
+                  <div className="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="-2 -14 14 14" fill="none" className="flex-shrink-0">
+                      <line x1="0" y1="0" x2="0" y2="-12" stroke="#93c5fd" strokeWidth="1.5"/>
+                      <polygon points="0,-12 8,-9 0,-6" fill="#2563eb"/>
+                      <circle cy="0" r="2.5" fill="#1d4ed8"/>
+                    </svg>
+                    <span className="text-sm text-slate-300">MLB Stadium</span>
+                  </div>
                 </div>
               </div>
 
               <div className="mb-6">
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Stats</h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 rounded-lg bg-slate-800/60 text-center">
                     <p className="text-xl font-bold text-white">{Object.keys(COUNTRY_DATA).length}</p>
                     <p className="text-xs text-slate-400 mt-0.5">Countries</p>
@@ -522,6 +691,10 @@ export default function App() {
                   <div className="p-3 rounded-lg bg-slate-800/60 text-center">
                     <p className="text-xl font-bold text-white">13</p>
                     <p className="text-xs text-slate-400 mt-0.5">CA Provinces</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-800/60 text-center">
+                    <p className="text-xl font-bold text-white">30</p>
+                    <p className="text-xs text-slate-400 mt-0.5">MLB Stadiums</p>
                   </div>
                 </div>
               </div>
