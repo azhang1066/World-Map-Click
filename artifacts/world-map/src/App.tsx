@@ -298,6 +298,13 @@ export default function App() {
   const [tooltipName, setTooltipName] = useState<string>("");
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
+  const [listTab, setListTab] = useState<"countries" | "stadiums">("countries");
+
+  const sortedCountries = Object.entries(COUNTRY_DATA)
+    .map(([id, info]) => ({ id, ...info }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const sortedStadiums = [...MLB_STADIUMS].sort((a, b) => a.team.localeCompare(b.team));
 
   const handleCountryClick = useCallback((geo: { id: string }) => {
     const code = geo.id;
@@ -354,7 +361,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-950 text-white">
+    <div className="flex flex-col bg-slate-950 text-white">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">World Map</h1>
@@ -367,7 +374,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex overflow-hidden" style={{ height: "calc(100vh - 72px - 260px)", minHeight: "400px" }}>
         <div className="flex-1 relative overflow-hidden bg-slate-950">
           <ComposableMap
             projection="geoMercator"
@@ -713,6 +720,85 @@ export default function App() {
           )}
         </aside>
       </div>
+
+      {/* Tabbed list section below the map */}
+      <section className="border-t border-slate-800 bg-slate-900">
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b border-slate-800">
+          <button
+            onClick={() => setListTab("countries")}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              listTab === "countries"
+                ? "border-blue-500 text-white bg-slate-800/60"
+                : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
+            }`}
+          >
+            Countries ({sortedCountries.length})
+          </button>
+          <button
+            onClick={() => setListTab("stadiums")}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              listTab === "stadiums"
+                ? "border-blue-500 text-white bg-slate-800/60"
+                : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
+            }`}
+          >
+            MLB Stadiums ({sortedStadiums.length})
+          </button>
+        </div>
+
+        {/* Countries tab */}
+        {listTab === "countries" && (
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
+              {sortedCountries.map((country) => (
+                <button
+                  key={country.id}
+                  onClick={() => {
+                    setSelectedStadium(null);
+                    setSelected({ key: `country-${country.id}`, info: country });
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors truncate ${
+                    selected?.key === `country-${country.id}`
+                      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
+                      : "bg-slate-800/40 hover:bg-slate-700/60 text-slate-300 hover:text-white"
+                  }`}
+                  title={country.name}
+                >
+                  {country.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MLB Stadiums tab */}
+        {listTab === "stadiums" && (
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
+              {sortedStadiums.map((stadium) => (
+                <button
+                  key={stadium.team}
+                  onClick={() => {
+                    setSelected(null);
+                    setSelectedStadium(stadium);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedStadium?.team === stadium.team
+                      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
+                      : "bg-slate-800/40 hover:bg-slate-700/60 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <p className="font-medium truncate">{stadium.team}</p>
+                  <p className="text-xs text-slate-400 truncate mt-0.5">{stadium.stadium}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
