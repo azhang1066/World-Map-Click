@@ -377,14 +377,16 @@ function getCountryFill(numericCode: string, isSelected: boolean, isHovered: boo
   return isHovered ? "#3d4a5c" : "#1e293b";
 }
 
-function getStateFill(isSelected: boolean, isHovered: boolean) {
+function getStateFill(isSelected: boolean, isHovered: boolean, isVisited: boolean) {
   if (isSelected) return SELECTED_COLOR;
-  return isHovered ? US_STATE_HOVER_COLOR : US_STATE_COLOR + "cc";
+  if (isVisited) return isHovered ? US_STATE_HOVER_COLOR : US_STATE_COLOR + "cc";
+  return isHovered ? "#3d4a5c" : "#253040";
 }
 
-function getProvinceFill(isSelected: boolean, isHovered: boolean) {
+function getProvinceFill(isSelected: boolean, isHovered: boolean, isVisited: boolean) {
   if (isSelected) return SELECTED_COLOR;
-  return isHovered ? CA_PROVINCE_HOVER_COLOR : CA_PROVINCE_COLOR + "cc";
+  if (isVisited) return isHovered ? CA_PROVINCE_HOVER_COLOR : CA_PROVINCE_COLOR + "cc";
+  return isHovered ? "#3d4a5c" : "#253040";
 }
 
 const DIVISION_COLORS: Record<string, string> = {
@@ -405,9 +407,11 @@ export default function App() {
   const [tooltipName, setTooltipName] = useState<string>("");
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
-  const [listTab, setListTab] = useState<"countries" | "stadiums">("countries");
+  const [listTab, setListTab] = useState<"countries" | "stadiums" | "us-states" | "ca-provinces">("countries");
   const [visitedCountries, setVisitedCountries] = useState<Set<string>>(new Set());
   const [visitedStadiums, setVisitedStadiums] = useState<Set<string>>(new Set());
+  const [visitedStates, setVisitedStates] = useState<Set<string>>(new Set());
+  const [visitedProvinces, setVisitedProvinces] = useState<Set<string>>(new Set());
 
   const sortedCountries = Object.entries(COUNTRY_DATA)
     .map(([id, info]) => ({ id, ...info }))
@@ -415,22 +419,30 @@ export default function App() {
 
   const sortedStadiums = [...MLB_STADIUMS].sort((a, b) => a.team.localeCompare(b.team));
 
+  const sortedStates = Object.entries(US_STATE_DATA)
+    .map(([fips, info]) => ({ fips, ...info }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const sortedProvinces = Object.entries(CA_PROVINCE_DATA)
+    .map(([name, info]) => ({ key: name, ...info }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const toggleCountryVisited = useCallback((id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setVisitedCountries(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setVisitedCountries(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }, []);
 
   const toggleStadiumVisited = useCallback((team: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setVisitedStadiums(prev => {
-      const next = new Set(prev);
-      if (next.has(team)) next.delete(team); else next.add(team);
-      return next;
-    });
+    setVisitedStadiums(prev => { const n = new Set(prev); if (n.has(team)) n.delete(team); else n.add(team); return n; });
+  }, []);
+
+  const toggleStateVisited = useCallback((fips: string) => {
+    setVisitedStates(prev => { const n = new Set(prev); if (n.has(fips)) n.delete(fips); else n.add(fips); return n; });
+  }, []);
+
+  const toggleProvinceVisited = useCallback((name: string) => {
+    setVisitedProvinces(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
   }, []);
 
   const handleCountryClick = useCallback((geo: { id: string }) => {
@@ -447,14 +459,20 @@ export default function App() {
     const fips = String(geo.id).padStart(2, "0");
     const info = US_STATE_DATA[fips];
     setSelectedStadium(null);
-    if (info) setSelected({ key: `state-${fips}`, info });
+    if (info) {
+      setVisitedStates(prev => { const n = new Set(prev); n.add(fips); return n; });
+      setSelected({ key: `state-${fips}`, info });
+    }
   }, []);
 
   const handleProvinceClick = useCallback((geo: { properties: Record<string, string> }) => {
     const name = geo.properties.name || geo.properties.NAME_1 || geo.properties.NAME;
     const info = CA_PROVINCE_DATA[name];
     setSelectedStadium(null);
-    if (info) setSelected({ key: `province-${name}`, info });
+    if (info) {
+      setVisitedProvinces(prev => { const n = new Set(prev); n.add(name); return n; });
+      setSelected({ key: `province-${name}`, info });
+    }
   }, []);
 
   const handleStadiumClick = useCallback((stadium: StadiumInfo) => {
@@ -549,6 +567,7 @@ export default function App() {
                     const fips = String(geo.id).padStart(2, "0");
                     const key = `state-${fips}`;
                     const isSelected = selected?.key === key;
+                    const isVisited = visitedStates.has(fips);
                     const stateName = US_STATE_DATA[fips]?.name ?? "Unknown State";
                     const isHovered = hovered === stateName;
                     return (
@@ -560,8 +579,8 @@ export default function App() {
                         onMouseMove={handleMouseMove}
                         onMouseLeave={handleMouseLeave}
                         style={{
-                          default: { fill: getStateFill(isSelected, false), stroke: "#1e293b", strokeWidth: 0.4, outline: "none", cursor: "pointer", transition: "fill 0.1s" },
-                          hover: { fill: getStateFill(isSelected, true), stroke: "#334155", strokeWidth: 0.6, outline: "none", cursor: "pointer" },
+                          default: { fill: getStateFill(isSelected, false, isVisited), stroke: "#1e293b", strokeWidth: 0.4, outline: "none", cursor: "pointer", transition: "fill 0.15s" },
+                          hover: { fill: getStateFill(isSelected, true, isVisited), stroke: "#334155", strokeWidth: 0.6, outline: "none", cursor: "pointer" },
                           pressed: { fill: SELECTED_COLOR, outline: "none" },
                         }}
                       />
@@ -577,6 +596,7 @@ export default function App() {
                     const name = geo.properties.name || geo.properties.NAME_1 || geo.properties.NAME || "";
                     const key = `province-${name}`;
                     const isSelected = selected?.key === key;
+                    const isVisited = visitedProvinces.has(name);
                     const isHovered = hovered === name;
                     return (
                       <Geography
@@ -587,8 +607,8 @@ export default function App() {
                         onMouseMove={handleMouseMove}
                         onMouseLeave={handleMouseLeave}
                         style={{
-                          default: { fill: getProvinceFill(isSelected, false), stroke: "#1e293b", strokeWidth: 0.4, outline: "none", cursor: "pointer", transition: "fill 0.1s" },
-                          hover: { fill: getProvinceFill(isSelected, true), stroke: "#334155", strokeWidth: 0.6, outline: "none", cursor: "pointer" },
+                          default: { fill: getProvinceFill(isSelected, false, isVisited), stroke: "#1e293b", strokeWidth: 0.4, outline: "none", cursor: "pointer", transition: "fill 0.15s" },
+                          hover: { fill: getProvinceFill(isSelected, true, isVisited), stroke: "#334155", strokeWidth: 0.6, outline: "none", cursor: "pointer" },
                           pressed: { fill: SELECTED_COLOR, outline: "none" },
                         }}
                       />
@@ -851,50 +871,46 @@ export default function App() {
       {/* Tabbed list section below the map */}
       <section className="border-t border-slate-800 bg-slate-900">
         {/* Tab bar + progress */}
-        <div className="flex items-center justify-between px-6 pt-4 pb-0 border-b border-slate-800">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setListTab("countries")}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                listTab === "countries"
-                  ? "border-blue-500 text-white bg-slate-800/60"
-                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
-              }`}
-            >
-              Countries
-            </button>
-            <button
-              onClick={() => setListTab("stadiums")}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                listTab === "stadiums"
-                  ? "border-blue-500 text-white bg-slate-800/60"
-                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
-              }`}
-            >
-              MLB Stadiums
-            </button>
+        <div className="flex items-center justify-between px-6 pt-4 pb-0 border-b border-slate-800 flex-wrap gap-y-2">
+          <div className="flex items-center gap-1 flex-wrap">
+            {([
+              { id: "countries", label: "Countries" },
+              { id: "us-states", label: "US States" },
+              { id: "ca-provinces", label: "CA Provinces" },
+              { id: "stadiums", label: "MLB Stadiums" },
+            ] as const).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setListTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                  listTab === tab.id
+                    ? "border-blue-500 text-white bg-slate-800/60"
+                    : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
           {/* Progress badges */}
-          <div className="flex items-center gap-3 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Countries</span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-white border border-slate-700">
-                {visitedCountries.size} <span className="text-slate-400 font-normal">/ {sortedCountries.length}</span>
-              </span>
-              <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${(visitedCountries.size / sortedCountries.length) * 100}%` }} />
+          <div className="flex items-center gap-3 pb-2 flex-wrap">
+            {[
+              { label: "Countries", visited: visitedCountries.size, total: sortedCountries.length, color: "bg-emerald-500" },
+              { label: "US States", visited: visitedStates.size, total: sortedStates.length, color: "bg-red-500" },
+              { label: "CA Prov.", visited: visitedProvinces.size, total: sortedProvinces.length, color: "bg-orange-500" },
+              { label: "Stadiums", visited: visitedStadiums.size, total: sortedStadiums.length, color: "bg-blue-500" },
+            ].map(({ label, visited, total, color }, i, arr) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">{label}</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-white border border-slate-700">
+                  {visited} <span className="text-slate-400 font-normal">/ {total}</span>
+                </span>
+                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className={`h-full ${color} rounded-full transition-all duration-300`} style={{ width: `${(visited / total) * 100}%` }} />
+                </div>
+                {i < arr.length - 1 && <div className="w-px h-5 bg-slate-700" />}
               </div>
-            </div>
-            <div className="w-px h-5 bg-slate-700" />
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Stadiums</span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-white border border-slate-700">
-                {visitedStadiums.size} <span className="text-slate-400 font-normal">/ {sortedStadiums.length}</span>
-              </span>
-              <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${(visitedStadiums.size / sortedStadiums.length) * 100}%` }} />
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -933,6 +949,92 @@ export default function App() {
                       title={country.name}
                     >
                       {country.name}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* US States tab */}
+        {listTab === "us-states" && (
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
+              {sortedStates.map((state) => {
+                const isVisited = visitedStates.has(state.fips);
+                const isActive = selected?.key === `state-${state.fips}`;
+                return (
+                  <div
+                    key={state.fips}
+                    className={`flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? "bg-yellow-500/20 border border-yellow-500/40"
+                        : isVisited
+                        ? "bg-red-900/30 border border-red-700/30 hover:bg-red-800/30"
+                        : "bg-slate-800/40 hover:bg-slate-700/60 border border-transparent"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isVisited}
+                      onChange={() => toggleStateVisited(state.fips)}
+                      className="w-3.5 h-3.5 flex-shrink-0 accent-red-500 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => {
+                        setSelectedStadium(null);
+                        setVisitedStates(prev => { const n = new Set(prev); n.add(state.fips); return n; });
+                        setSelected({ key: `state-${state.fips}`, info: state });
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`text-left truncate flex-1 min-w-0 ${isActive ? "text-yellow-300" : isVisited ? "text-red-300" : "text-slate-300 hover:text-white"}`}
+                      title={state.name}
+                    >
+                      {state.name}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* CA Provinces tab */}
+        {listTab === "ca-provinces" && (
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
+              {sortedProvinces.map((province) => {
+                const isVisited = visitedProvinces.has(province.key);
+                const isActive = selected?.key === `province-${province.key}`;
+                return (
+                  <div
+                    key={province.key}
+                    className={`flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? "bg-yellow-500/20 border border-yellow-500/40"
+                        : isVisited
+                        ? "bg-orange-900/30 border border-orange-700/30 hover:bg-orange-800/30"
+                        : "bg-slate-800/40 hover:bg-slate-700/60 border border-transparent"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isVisited}
+                      onChange={() => toggleProvinceVisited(province.key)}
+                      className="w-3.5 h-3.5 flex-shrink-0 accent-orange-500 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => {
+                        setSelectedStadium(null);
+                        setVisitedProvinces(prev => { const n = new Set(prev); n.add(province.key); return n; });
+                        setSelected({ key: `province-${province.key}`, info: province });
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`text-left truncate flex-1 min-w-0 ${isActive ? "text-yellow-300" : isVisited ? "text-orange-300" : "text-slate-300 hover:text-white"}`}
+                      title={province.name}
+                    >
+                      {province.name}
                     </button>
                   </div>
                 );
