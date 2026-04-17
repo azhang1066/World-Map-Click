@@ -364,14 +364,17 @@ const CA_PROVINCE_COLOR = "#f97316";
 const CA_PROVINCE_HOVER_COLOR = "#ea580c";
 const SELECTED_COLOR = "#facc15";
 
-function getCountryFill(numericCode: string, isSelected: boolean, isHovered: boolean) {
+function getCountryFill(numericCode: string, isSelected: boolean, isHovered: boolean, isVisited: boolean) {
   if (isSelected) return SELECTED_COLOR;
   const data = COUNTRY_DATA[numericCode];
   if (data) {
-    const base = CONTINENT_COLORS[data.continent ?? ""] ?? "#64748b";
-    return isHovered ? base : base + "cc";
+    if (isVisited) {
+      const base = CONTINENT_COLORS[data.continent ?? ""] ?? "#64748b";
+      return isHovered ? base : base + "cc";
+    }
+    return isHovered ? "#3d4a5c" : "#253040";
   }
-  return isHovered ? "#64748b" : "#475569";
+  return isHovered ? "#3d4a5c" : "#1e293b";
 }
 
 function getStateFill(isSelected: boolean, isHovered: boolean) {
@@ -403,6 +406,8 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
   const [listTab, setListTab] = useState<"countries" | "stadiums">("countries");
+  const [visitedCountries, setVisitedCountries] = useState<Set<string>>(new Set());
+  const [visitedStadiums, setVisitedStadiums] = useState<Set<string>>(new Set());
 
   const sortedCountries = Object.entries(COUNTRY_DATA)
     .map(([id, info]) => ({ id, ...info }))
@@ -410,12 +415,32 @@ export default function App() {
 
   const sortedStadiums = [...MLB_STADIUMS].sort((a, b) => a.team.localeCompare(b.team));
 
+  const toggleCountryVisited = useCallback((id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setVisitedCountries(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleStadiumVisited = useCallback((team: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setVisitedStadiums(prev => {
+      const next = new Set(prev);
+      if (next.has(team)) next.delete(team); else next.add(team);
+      return next;
+    });
+  }, []);
+
   const handleCountryClick = useCallback((geo: { id: string }) => {
     const code = geo.id;
     const info = COUNTRY_DATA[code];
     setSelectedStadium(null);
-    if (info) setSelected({ key: `country-${code}`, info });
-    else setSelected(null);
+    if (info) {
+      setVisitedCountries(prev => { const n = new Set(prev); n.add(code); return n; });
+      setSelected({ key: `country-${code}`, info });
+    } else setSelected(null);
   }, []);
 
   const handleStateClick = useCallback((geo: { id: string }) => {
@@ -434,6 +459,7 @@ export default function App() {
 
   const handleStadiumClick = useCallback((stadium: StadiumInfo) => {
     setSelected(null);
+    setVisitedStadiums(prev => { const n = new Set(prev); n.add(stadium.team); return n; });
     setSelectedStadium(stadium);
   }, []);
 
@@ -494,6 +520,7 @@ export default function App() {
                     .map((geo) => {
                       const key = `country-${geo.id}`;
                       const isSelected = selected?.key === key;
+                      const isVisited = visitedCountries.has(geo.id);
                       const countryName = COUNTRY_DATA[geo.id]?.name ?? "";
                       const isHovered = hovered === countryName;
                       return (
@@ -505,8 +532,8 @@ export default function App() {
                           onMouseMove={handleMouseMove}
                           onMouseLeave={handleMouseLeave}
                           style={{
-                            default: { fill: getCountryFill(geo.id, isSelected, false), stroke: "#1e293b", strokeWidth: 0.5, outline: "none", cursor: "pointer", transition: "fill 0.1s" },
-                            hover: { fill: getCountryFill(geo.id, isSelected, true), stroke: "#334155", strokeWidth: 0.7, outline: "none", cursor: "pointer" },
+                            default: { fill: getCountryFill(geo.id, isSelected, false, isVisited), stroke: "#1e293b", strokeWidth: 0.5, outline: "none", cursor: "pointer", transition: "fill 0.15s" },
+                            hover: { fill: getCountryFill(geo.id, isSelected, true, isVisited), stroke: "#334155", strokeWidth: 0.7, outline: "none", cursor: "pointer" },
                             pressed: { fill: SELECTED_COLOR, outline: "none" },
                           }}
                         />
@@ -573,7 +600,11 @@ export default function App() {
               {MLB_STADIUMS.map((stadium) => {
                 const isSelected = selectedStadium?.team === stadium.team;
                 const isHov = hoveredStadium === stadium.team;
+                const isVisited = visitedStadiums.has(stadium.team);
                 const s = 1 / zoom;
+                const poleColor = isSelected ? "#facc15" : isVisited ? "#93c5fd" : "#64748b";
+                const flagColor = isSelected ? "#facc15" : isVisited ? (isHov ? "#60a5fa" : "#2563eb") : (isHov ? "#64748b" : "#374151");
+                const dotColor = isSelected ? "#facc15" : isVisited ? "#2563eb" : "#374151";
                 return (
                   <Marker key={stadium.team} coordinates={stadium.coordinates}>
                     <g
@@ -584,17 +615,9 @@ export default function App() {
                       onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
                       onMouseLeave={() => { setHoveredStadium(null); setTooltipName(""); }}
                     >
-                      {/* Flag pole */}
-                      <line x1="0" y1="0" x2="0" y2="-20" stroke={isSelected ? "#facc15" : "#93c5fd"} strokeWidth={isHov || isSelected ? 2 : 1.5} />
-                      {/* Flag body */}
-                      <polygon
-                        points="0,-20 12,-16 0,-12"
-                        fill={isSelected ? "#facc15" : isHov ? "#60a5fa" : "#2563eb"}
-                        stroke={isSelected ? "#f59e0b" : "#1d4ed8"}
-                        strokeWidth="0.5"
-                      />
-                      {/* Base dot */}
-                      <circle r={isHov || isSelected ? 3.5 : 2.5} fill={isSelected ? "#facc15" : "#1d4ed8"} stroke="#0f172a" strokeWidth="0.8" />
+                      <line x1="0" y1="0" x2="0" y2="-20" stroke={poleColor} strokeWidth={isHov || isSelected ? 2 : 1.5} />
+                      <polygon points="0,-20 12,-16 0,-12" fill={flagColor} stroke={isSelected ? "#f59e0b" : isVisited ? "#1d4ed8" : "#1f2937"} strokeWidth="0.5" />
+                      <circle r={isHov || isSelected ? 3.5 : 2.5} fill={dotColor} stroke="#0f172a" strokeWidth="0.8" />
                     </g>
                   </Marker>
                 );
@@ -827,52 +850,93 @@ export default function App() {
 
       {/* Tabbed list section below the map */}
       <section className="border-t border-slate-800 bg-slate-900">
-        {/* Tab bar */}
-        <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b border-slate-800">
-          <button
-            onClick={() => setListTab("countries")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-              listTab === "countries"
-                ? "border-blue-500 text-white bg-slate-800/60"
-                : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
-            }`}
-          >
-            Countries ({sortedCountries.length})
-          </button>
-          <button
-            onClick={() => setListTab("stadiums")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-              listTab === "stadiums"
-                ? "border-blue-500 text-white bg-slate-800/60"
-                : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
-            }`}
-          >
-            MLB Stadiums ({sortedStadiums.length})
-          </button>
+        {/* Tab bar + progress */}
+        <div className="flex items-center justify-between px-6 pt-4 pb-0 border-b border-slate-800">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setListTab("countries")}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                listTab === "countries"
+                  ? "border-blue-500 text-white bg-slate-800/60"
+                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
+              }`}
+            >
+              Countries
+            </button>
+            <button
+              onClick={() => setListTab("stadiums")}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                listTab === "stadiums"
+                  ? "border-blue-500 text-white bg-slate-800/60"
+                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/30"
+              }`}
+            >
+              MLB Stadiums
+            </button>
+          </div>
+          {/* Progress badges */}
+          <div className="flex items-center gap-3 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Countries</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-white border border-slate-700">
+                {visitedCountries.size} <span className="text-slate-400 font-normal">/ {sortedCountries.length}</span>
+              </span>
+              <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${(visitedCountries.size / sortedCountries.length) * 100}%` }} />
+              </div>
+            </div>
+            <div className="w-px h-5 bg-slate-700" />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Stadiums</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-white border border-slate-700">
+                {visitedStadiums.size} <span className="text-slate-400 font-normal">/ {sortedStadiums.length}</span>
+              </span>
+              <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${(visitedStadiums.size / sortedStadiums.length) * 100}%` }} />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Countries tab */}
         {listTab === "countries" && (
           <div className="px-6 py-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5">
-              {sortedCountries.map((country) => (
-                <button
-                  key={country.id}
-                  onClick={() => {
-                    setSelectedStadium(null);
-                    setSelected({ key: `country-${country.id}`, info: country });
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors truncate ${
-                    selected?.key === `country-${country.id}`
-                      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
-                      : "bg-slate-800/40 hover:bg-slate-700/60 text-slate-300 hover:text-white"
-                  }`}
-                  title={country.name}
-                >
-                  {country.name}
-                </button>
-              ))}
+              {sortedCountries.map((country) => {
+                const isVisited = visitedCountries.has(country.id);
+                const isActive = selected?.key === `country-${country.id}`;
+                return (
+                  <div
+                    key={country.id}
+                    className={`flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? "bg-yellow-500/20 border border-yellow-500/40"
+                        : isVisited
+                        ? "bg-emerald-900/30 border border-emerald-700/30 hover:bg-emerald-800/30"
+                        : "bg-slate-800/40 hover:bg-slate-700/60 border border-transparent"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isVisited}
+                      onChange={() => toggleCountryVisited(country.id)}
+                      className="w-3.5 h-3.5 flex-shrink-0 accent-emerald-500 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => {
+                        setSelectedStadium(null);
+                        setVisitedCountries(prev => { const n = new Set(prev); n.add(country.id); return n; });
+                        setSelected({ key: `country-${country.id}`, info: country });
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`text-left truncate flex-1 min-w-0 ${isActive ? "text-yellow-300" : isVisited ? "text-emerald-300" : "text-slate-300 hover:text-white"}`}
+                      title={country.name}
+                    >
+                      {country.name}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -881,24 +945,41 @@ export default function App() {
         {listTab === "stadiums" && (
           <div className="px-6 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
-              {sortedStadiums.map((stadium) => (
-                <button
-                  key={stadium.team}
-                  onClick={() => {
-                    setSelected(null);
-                    setSelectedStadium(stadium);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    selectedStadium?.team === stadium.team
-                      ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
-                      : "bg-slate-800/40 hover:bg-slate-700/60 text-slate-300 hover:text-white"
-                  }`}
-                >
-                  <p className="font-medium truncate">{stadium.team}</p>
-                  <p className="text-xs text-slate-400 truncate mt-0.5">{stadium.stadium}</p>
-                </button>
-              ))}
+              {sortedStadiums.map((stadium) => {
+                const isVisited = visitedStadiums.has(stadium.team);
+                const isActive = selectedStadium?.team === stadium.team;
+                return (
+                  <div
+                    key={stadium.team}
+                    className={`flex items-start gap-2 px-2.5 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? "bg-yellow-500/20 border border-yellow-500/40"
+                        : isVisited
+                        ? "bg-blue-900/30 border border-blue-700/30 hover:bg-blue-800/30"
+                        : "bg-slate-800/40 hover:bg-slate-700/60 border border-transparent"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isVisited}
+                      onChange={() => toggleStadiumVisited(stadium.team)}
+                      className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 accent-blue-500 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => {
+                        setSelected(null);
+                        setVisitedStadiums(prev => { const n = new Set(prev); n.add(stadium.team); return n; });
+                        setSelectedStadium(stadium);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="text-left flex-1 min-w-0"
+                    >
+                      <p className={`font-medium truncate ${isActive ? "text-yellow-300" : isVisited ? "text-blue-300" : "text-slate-300 hover:text-white"}`}>{stadium.team}</p>
+                      <p className="text-xs text-slate-400 truncate mt-0.5">{stadium.stadium}</p>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
